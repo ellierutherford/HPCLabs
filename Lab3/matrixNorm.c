@@ -17,6 +17,38 @@ typedef struct {
         double *result;
 } matrix_slice_product;
 
+typedef struct {
+    double mysum;
+    double *global_norm;
+    pthread_mutex_t *mutex;
+    double *result;
+    int numOfCols;
+    int id;
+} matrix_norm_t;
+
+void *matrix_norm(void *arg) {
+ matrix_norm_t *norm_data;
+ int i,j;
+ norm_data = arg;
+ int numOfCols = norm_data->numOfCols;
+ int id = norm_data->id;
+ for(i=0; i<numOfCols; i++){
+     for(j=0;j<n;j++){
+         //TODO get absolute values
+         norm_data->mysum += norm_data->result[i+j*n];
+         //printf("\nmy sum now %f and column val is %f", norm_data->mysum, norm_data->result[i+j*n]);
+     }
+     printf("my id is %d and my sum is %f", norm_data->id, norm_data->mysum);
+     pthread_mutex_lock(norm_data->mutex);
+     if(*(norm_data->global_norm) < norm_data->mysum){
+         *(norm_data->global_norm) = norm_data->mysum;
+     }
+     norm_data->mysum = 0;
+     pthread_mutex_unlock(norm_data->mutex);
+ }
+ pthread_exit(NULL);
+}
+
 void *serial_matrix_multiply(void *arg) {
          matrix_slice_product *sliceData;
          sliceData = arg;
@@ -41,12 +73,16 @@ int main()
          struct timezone tz;
 	 //double *result;
          double *mat1, *mat2, *result;
+	 double norm = 0;
          //double mat1[] = {136,158,112,122,100,123,96,32,160,102,175,27,163,93,104,164};
     	 //double mat2[] = {6,1,8,8,6,9,9,4,9,1,2,6,7,2,5,7};
 	 //double mat1[] = {7,1,8,7,9,0,9,0,1,8,0,8,5,3,0,8};
  	 //double mat2[] = {1,2,5,4,1,9,7,3,2,9,3,8,9,2,8,3};
-         pthread_t *working_thread;
+         pthread_t *working_thread, *norm_threads;
          matrix_slice_product *thrd_dot_prod_data;
+         matrix_norm_t *thrd_norm_data;
+         pthread_mutex_t *mutex_norm;
+         
          void *status;
          int num_of_thrds;
          int sliceSize;
@@ -74,11 +110,11 @@ int main()
          mat2 = malloc(n*n*sizeof(double));
          result = malloc(n*n*sizeof(double));
          InitializeMatrix(1, mat1);
-	 //rintf("\nprinting %dx%d matrix 1\n", n, n);
-	 //PrintMatrix(mat1);
+	 printf("\nprinting %dx%d matrix 1\n", n, n);
+	 PrintMatrix(mat1);
 	 InitializeMatrix(1, mat2);
-	 //printf("\nprinting %dx%d matrix 2\n", n, n);
-         //PrintMatrix(mat2);
+	 printf("\nprinting %dx%d matrix 2\n", n, n);
+         PrintMatrix(mat2);
          //printf("try initialize results matrix");
 	 InitializeMatrix(0, result);
 	 if(serial==0){
@@ -92,6 +128,10 @@ int main()
 	 }
          working_thread = malloc(num_of_thrds*sizeof(pthread_t));
          thrd_dot_prod_data = malloc(num_of_thrds*sizeof(matrix_slice_product));
+         norm_threads = malloc(num_of_thrds*sizeof(pthread_t));
+         thrd_norm_data = malloc(num_of_thrds*sizeof(matrix_norm_t));
+         mutex_norm = malloc(sizeof(pthread_mutex_t));
+         pthread_mutex_init(mutex_norm, NULL);
          gettimeofday(&tv1, &tz);
          for(i=0; i<num_of_thrds; i++) {
                  thrd_dot_prod_data[i].mat1 = mat1;
@@ -106,17 +146,35 @@ int main()
 
          for(i=0; i<num_of_thrds; i++)
                 pthread_join(working_thread[i], &status);
+
+         //printf("HELLO");
+	 int numOfCols = n/num_of_thrds;
+         for(i=0;i<num_of_thrds; i++){
+	     thrd_norm_data[i].result = result + i*numOfCols;
+             thrd_norm_data[i].mysum = 0;
+             thrd_norm_data[i].global_norm = &norm;
+             thrd_norm_data[i].mutex = mutex_norm;
+             thrd_norm_data[i].id = i;
+             thrd_norm_data[i].numOfCols = (i==num_of_thrds-1)? n-(num_of_thrds-1)*numOfCols: numOfCols;
+             pthread_create(&norm_threads[i], NULL, matrix_norm, (void*)&thrd_norm_data[i]);
+	 }
+         for(i=0;i<num_of_thrds;i++){
+             pthread_join(norm_threads[i], &status);
+	 }
+         printf("\nmatrix norm is %f\n", norm);
          gettimeofday(&tv2, &tz);
          double elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
-         //PrintMatrix(result);
+         PrintMatrix(result);
          printf("Elapsed time is %f\n", elapsed);
          free(mat1);
          free(mat2);
 	 free(result);
          free(working_thread);
          free(thrd_dot_prod_data);
-         //pthread_mutex_destroy(mutex_dot_prod);
-         //free(mutex_dot_prod);
+         //free(norm_threads);
+         //free(thrd_norm_data);
+         //pthread_mutex_destroy(mutex_norm);
+         //free(mutex_norm);
 }
 
 void PrintMatrix(double *matrixToPrint){
