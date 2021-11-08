@@ -12,10 +12,10 @@ void InitializeMatrix(int seed, double *matrix);
 int n;
 
 typedef struct {
-        double *mat1;
-        double *slice;
-	int slice_size;
-        double *result;
+    double *mat1;
+    double *slice;
+    int slice_size;
+    double *result;
 } matrix_multiply_t;
 
 typedef struct {
@@ -61,111 +61,95 @@ void *matrix_multiply(void *arg) {
 }
 int main()
 {
-         srand(time(NULL));
-         struct timeval tv1, tv2;
-         struct timezone tz;
-	 //double *result;
-         double *mat1, *mat2, *result;
-	 double norm = 0;
+    srand(time(NULL));
+    struct timeval tv1, tv2;
+    struct timezone tz;
+    double *mat1, *mat2, *result;
+    double norm = 0;
          //double mat1[] = {136,158,112,122,100,123,96,32,160,102,175,27,163,93,104,164};
     	 //double mat2[] = {6,1,8,8,6,9,9,4,9,1,2,6,7,2,5,7};
 	 //double mat1[] = {7,1,8,7,9,0,9,0,1,8,0,8,5,3,0,8};
  	 //double mat2[] = {1,2,5,4,1,9,7,3,2,9,3,8,9,2,8,3};
-         pthread_t *working_thread, *norm_threads;
-         matrix_multiply_t *thrd_mat_mul_data;
-         matrix_norm_t *thrd_norm_data;
-         pthread_mutex_t *mutex_norm;
-         
-         void *status;
-         int num_of_thrds;
-         int slice_size;
-         int i;
-         printf("Number of processors = ");
-         if(scanf("%d", &num_of_thrds) < 1 || num_of_thrds > MAXTHRDS) {
-                printf("Check input for number of processors. Bye.\n");
-         return -1;
-         }
-         printf("Matrix size = ");
-         if(scanf("%d", &n)<1) {
-                printf("Check input for matrix size. Bye.\n");
-                return -1;
-         }
-	 int serial;
-	 printf("Serial (0) or parallel (1) = ");
-	 scanf("%d", &serial);
-	 /*if(serial!=0) {
-                printf("Check input for execution option. Bye.\n");
-	        printf("Serial entered is %d", serial);
-                return -1;
-         }*/
-         slice_size = n/num_of_thrds;
-         mat1 = malloc(n*n*sizeof(double));
-         mat2 = malloc(n*n*sizeof(double));
-         result = malloc(n*n*sizeof(double));
-         InitializeMatrix(1, mat1);
-	 printf("\nprinting %dx%d matrix 1\n", n, n);
-	 PrintMatrix(mat1);
-	 InitializeMatrix(1, mat2);
-	 printf("\nprinting %dx%d matrix 2\n", n, n);
-         PrintMatrix(mat2);
+    pthread_t *working_thread, *norm_threads;
+    matrix_multiply_t *thrd_mat_mul_data;
+    matrix_norm_t *thrd_norm_data;
+    pthread_mutex_t *mutex_norm;
+
+    void *status;
+    int num_of_thrds;
+    int slice_size;
+    int i;
+    printf("Number of processors = ");
+    if(scanf("%d", &num_of_thrds) < 1 || num_of_thrds > MAXTHRDS) {
+        printf("Check input for number of processors. Bye.\n");
+        return -1;
+    }
+    printf("Matrix size = ");
+    if(scanf("%d", &n)<1) {
+        printf("Check input for matrix size. Bye.\n");
+        return -1;
+    }
+
+    slice_size = n/num_of_thrds;
+    mat1 = malloc(n*n*sizeof(double));
+    mat2 = malloc(n*n*sizeof(double));
+    result = malloc(n*n*sizeof(double));
+
+    InitializeMatrix(1, mat1);
+	 //printf("\nprinting %dx%d matrix 1\n", n, n);
+	 //PrintMatrix(mat1);
+    InitializeMatrix(1, mat2);
+	 //printf("\nprinting %dx%d matrix 2\n", n, n);
+         //PrintMatrix(mat2);
          //printf("try initialize results matrix");
-	 InitializeMatrix(0, result);
-	 if(serial==0){
-	     printf("doing serial\n");
-	     gettimeofday(&tv1, &tz);
-	     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1, mat1, n, mat2, n, 1, result, n);
-	     gettimeofday(&tv2, &tz);
-	     double elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
-	     printf("elapsed is %f\n", elapsed);
-	     return 0;
-	 }
-         working_thread = malloc(num_of_thrds*sizeof(pthread_t));
-         thrd_mat_mul_data = malloc(num_of_thrds*sizeof(matrix_multiply_t));
-         norm_threads = malloc(num_of_thrds*sizeof(pthread_t));
-         thrd_norm_data = malloc(num_of_thrds*sizeof(matrix_norm_t));
-         mutex_norm = malloc(sizeof(pthread_mutex_t));
-         pthread_mutex_init(mutex_norm, NULL);
-         gettimeofday(&tv1, &tz);
-         for(i=0; i<num_of_thrds; i++) {
-                 thrd_mat_mul_data[i].mat1 = mat1;
-		 int stride = (i==num_of_thrds-1) ? n-(num_of_thrds-1)*slice_size: slice_size;
-                 thrd_mat_mul_data[i].result = result + i*slice_size;
-                 thrd_mat_mul_data[i].slice = mat2 + i*slice_size;
-                 thrd_mat_mul_data[i].slice_size = stride;
-                 pthread_create(&working_thread[i], NULL, matrix_multiply,
-                 (void*)&thrd_mat_mul_data[i]);
-         }
+    InitializeMatrix(0, result);
 
-         for(i=0; i<num_of_thrds; i++)
-                pthread_join(working_thread[i], &status);
+    working_thread = malloc(num_of_thrds*sizeof(pthread_t));
+    thrd_mat_mul_data = malloc(num_of_thrds*sizeof(matrix_multiply_t));
+    norm_threads = malloc(num_of_thrds*sizeof(pthread_t));
+    thrd_norm_data = malloc(num_of_thrds*sizeof(matrix_norm_t));
+    mutex_norm = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(mutex_norm, NULL);
+    gettimeofday(&tv1, &tz);
+    for(i=0; i<num_of_thrds; i++) {
+        thrd_mat_mul_data[i].mat1 = mat1;
+	int stride = (i==num_of_thrds-1) ? n-(num_of_thrds-1)*slice_size: slice_size;
+        thrd_mat_mul_data[i].result = result + i*slice_size;
+        thrd_mat_mul_data[i].slice = mat2 + i*slice_size;
+        thrd_mat_mul_data[i].slice_size = stride;
+        pthread_create(&working_thread[i], NULL, matrix_multiply,(void*)&thrd_mat_mul_data[i]);
+    }
 
-         //printf("HELLO");
-	 int num_of_cols = n/num_of_thrds;
-         for(i=0;i<num_of_thrds; i++){
-	     thrd_norm_data[i].result = result + i*num_of_cols;
-             thrd_norm_data[i].my_sum = 0;
-             thrd_norm_data[i].global_norm = &norm;
-             thrd_norm_data[i].mutex = mutex_norm;
-             thrd_norm_data[i].num_of_cols = (i==num_of_thrds-1)? n-(num_of_thrds-1)*num_of_cols: num_of_cols;
-             pthread_create(&norm_threads[i], NULL, matrix_norm, (void*)&thrd_norm_data[i]);
-	 }
-         for(i=0;i<num_of_thrds;i++){
-             pthread_join(norm_threads[i], &status);
-	 }
-         printf("\nmatrix norm is %f\n", norm);
-         gettimeofday(&tv2, &tz);
-         double elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
-         PrintMatrix(result);
-         printf("Elapsed time is %f\n", elapsed);
-         free(mat1);
-         free(mat2);
-	 free(result);
-         free(working_thread);
-         free(thrd_mat_mul_data);
-         free(norm_threads);
-         free(thrd_norm_data);
-         pthread_mutex_destroy(mutex_norm);
-         free(mutex_norm);
+    for(i=0; i<num_of_thrds; i++){
+         pthread_join(working_thread[i], &status);
+    }
+
+    int num_of_cols = n/num_of_thrds;
+    for(i=0;i<num_of_thrds; i++){
+        thrd_norm_data[i].result = result + i*num_of_cols;
+        thrd_norm_data[i].my_sum = 0;
+        thrd_norm_data[i].global_norm = &norm;
+        thrd_norm_data[i].mutex = mutex_norm;
+        thrd_norm_data[i].num_of_cols = (i==num_of_thrds-1)? n-(num_of_thrds-1)*num_of_cols: num_of_cols;
+        pthread_create(&norm_threads[i], NULL, matrix_norm, (void*)&thrd_norm_data[i]);
+    }
+    for(i=0;i<num_of_thrds;i++){
+        pthread_join(norm_threads[i], &status);
+    }
+    printf("\nmatrix norm is %f\n", norm);
+    gettimeofday(&tv2, &tz);
+    double elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
+         //PrintMatrix(result);
+    printf("Elapsed time is %f\n", elapsed);
+    free(mat1);
+    free(mat2);
+    free(result);
+    free(working_thread);
+    free(thrd_mat_mul_data);
+    free(norm_threads);
+    free(thrd_norm_data);
+    pthread_mutex_destroy(mutex_norm);
+    free(mutex_norm);
 }
 
 void PrintMatrix(double *matrixToPrint){
