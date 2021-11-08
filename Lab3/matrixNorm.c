@@ -3,12 +3,14 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <cblas.h>
+#include <math.h>
 
 #define MAXTHRDS 124
 
 void PrintMatrix(double *matrixToPrint);
 void InitializeMatrix(int seed, double *matrix);
 int n;
+
 typedef struct {
         double *mat1;
         double *slice;
@@ -18,35 +20,38 @@ typedef struct {
 } matrix_slice_product;
 
 typedef struct {
-    double mysum;
+    double my_sum;
     double *global_norm;
     pthread_mutex_t *mutex;
     double *result;
-    int numOfCols;
+    int num_of_cols;
     int id;
 } matrix_norm_t;
 
 void *matrix_norm(void *arg) {
- matrix_norm_t *norm_data;
- int i,j;
- norm_data = arg;
- int numOfCols = norm_data->numOfCols;
- int id = norm_data->id;
- for(i=0; i<numOfCols; i++){
-     for(j=0;j<n;j++){
-         //TODO get absolute values
-         norm_data->mysum += norm_data->result[i+j*n];
-         //printf("\nmy sum now %f and column val is %f", norm_data->mysum, norm_data->result[i+j*n]);
-     }
-     printf("my id is %d and my sum is %f", norm_data->id, norm_data->mysum);
-     pthread_mutex_lock(norm_data->mutex);
-     if(*(norm_data->global_norm) < norm_data->mysum){
-         *(norm_data->global_norm) = norm_data->mysum;
-     }
-     norm_data->mysum = 0;
-     pthread_mutex_unlock(norm_data->mutex);
- }
- pthread_exit(NULL);
+    matrix_norm_t *norm_data;
+    int i,j;
+    norm_data = arg;
+    int num_of_cols = norm_data->num_of_cols;
+    int id = norm_data->id;
+    // outer loop ensure we only get the sum of the columns assigned to this thread
+    for(i=0; i<num_of_cols; i++){
+        // inner loop takes care of getting each value in a given column
+        for(j=0;j<n;j++){
+            // add the absolute value of each cell in column to total sum for column
+            norm_data->my_sum += fabs(norm_data->result[i+j*n]);
+        }
+        // once you have the sum for the column, compare it to the 'global' norm for the matrix
+        // if the sum of the column values is larger than the global norm, update the norm to be this column's sum
+        pthread_mutex_lock(norm_data->mutex);
+        if(*(norm_data->global_norm) < norm_data->my_sum){
+            *(norm_data->global_norm) = norm_data->my_sum;
+        }
+        // reset the sum in between columns
+        norm_data->my_sum = 0;
+        pthread_mutex_unlock(norm_data->mutex);
+    }
+    pthread_exit(NULL);
 }
 
 void *serial_matrix_multiply(void *arg) {
@@ -148,14 +153,14 @@ int main()
                 pthread_join(working_thread[i], &status);
 
          //printf("HELLO");
-	 int numOfCols = n/num_of_thrds;
+	 int num_of_cols = n/num_of_thrds;
          for(i=0;i<num_of_thrds; i++){
-	     thrd_norm_data[i].result = result + i*numOfCols;
-             thrd_norm_data[i].mysum = 0;
+	     thrd_norm_data[i].result = result + i*num_of_cols;
+             thrd_norm_data[i].my_sum = 0;
              thrd_norm_data[i].global_norm = &norm;
              thrd_norm_data[i].mutex = mutex_norm;
              thrd_norm_data[i].id = i;
-             thrd_norm_data[i].numOfCols = (i==num_of_thrds-1)? n-(num_of_thrds-1)*numOfCols: numOfCols;
+             thrd_norm_data[i].num_of_cols = (i==num_of_thrds-1)? n-(num_of_thrds-1)*num_of_cols: num_of_cols;
              pthread_create(&norm_threads[i], NULL, matrix_norm, (void*)&thrd_norm_data[i]);
 	 }
          for(i=0;i<num_of_thrds;i++){
@@ -171,10 +176,10 @@ int main()
 	 free(result);
          free(working_thread);
          free(thrd_dot_prod_data);
-         //free(norm_threads);
-         //free(thrd_norm_data);
-         //pthread_mutex_destroy(mutex_norm);
-         //free(mutex_norm);
+         free(norm_threads);
+         free(thrd_norm_data);
+         pthread_mutex_destroy(mutex_norm);
+         free(mutex_norm);
 }
 
 void PrintMatrix(double *matrixToPrint){
