@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <cblas.h>
 #include <math.h>
+#include <stdbool.h>
 
 #define MAXTHRDS 124
 
@@ -11,6 +12,9 @@ void PrintMatrix(double *matrixToPrint);
 void InitializeMatrix(int seed, double *matrix);
 double CalculateMatrixNorm(double *result);
 void MultiplyMatrices(double *mat1, double *mat2, double *result);
+bool TestNorm(double *mat1, double *mat2, double *actualResult, double *expectedResult, double expectedNorm);
+void test();
+bool VerifyArraysEqual(double *actual, double *expected);
 
 int n, num_of_thrds;
 
@@ -19,7 +23,7 @@ typedef struct {
     double *slice;
     int slice_size;
     double *result;
-} matrix_multiply_t;
+}matrix_multiply_t;
 
 typedef struct {
     double my_sum;
@@ -127,6 +131,10 @@ int main()
     srand(time(NULL));
     struct timeval tv1, tv2;
     struct timezone tz;
+
+    /*test();
+    printf("finished testing");
+    return 0;*/
     double *mat1, *mat2, *result;
 
     printf("Number of processors = ");
@@ -169,6 +177,40 @@ int main()
     free(mat1);
     free(mat2);
     free(result);
+}
+
+void test(){
+    printf("Running tests\n");
+    double mat1[] = {136,158,112,122,100,123,96,32,160,102,175,27,163,93,104,164};
+    double mat2[] = {6,1,8,8,6,9,9,4,9,1,2,6,7,2,5,7};
+    double expectedResult[] = {3626, 1914, 3344, 3246, 2426, 1367, 2259, 2092, 3336, 1307, 2683, 2927, 3620, 1432, 3169, 3448};
+    double *actualResult;
+    n = 4;
+    actualResult = malloc(n*n*sizeof(double));
+    InitializeMatrix(0,actualResult);
+    bool testPass = TestNorm(mat1,mat2,actualResult,expectedResult,13008);
+    free(actualResult);
+    printf("\nBlocked multiply %s\n", testPass ? "passed" : "failed");
+}
+
+bool TestNorm(double *mat1, double *mat2, double *actualResult, double *expectedResult, double expectedNorm){
+    num_of_thrds = 2;
+    n = 4;
+    printf("multiplying matrices\n");
+    MultiplyMatrices(mat1,mat2,actualResult);
+    printf("calculating norm\n");
+    double norm = CalculateMatrixNorm(actualResult);
+    printf("norm is %lf\n", norm);
+    return VerifyArraysEqual(actualResult,expectedResult) && norm == expectedNorm;
+}
+
+bool VerifyArraysEqual(double *actual, double *expected){
+    for(int i=0;i<n*n;i++){
+        if(actual[i]!=expected[i]){
+	    return false;
+	}
+    }
+    return true;
 }
 
 void PrintMatrix(double *matrixToPrint){
