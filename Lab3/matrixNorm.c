@@ -25,7 +25,6 @@ typedef struct {
     pthread_mutex_t *mutex;
     double *result;
     int num_of_cols;
-    int id;
 } matrix_norm_t;
 
 void *matrix_norm(void *arg) {
@@ -33,8 +32,7 @@ void *matrix_norm(void *arg) {
     int i,j;
     norm_data = arg;
     int num_of_cols = norm_data->num_of_cols;
-    int id = norm_data->id;
-    // outer loop ensure we only get the sum of the columns assigned to this thread
+    // outer loop ensures we only get the sum of the columns assigned to this thread
     for(i=0; i<num_of_cols; i++){
         // inner loop takes care of getting each value in a given column
         for(j=0;j<n;j++){
@@ -42,7 +40,7 @@ void *matrix_norm(void *arg) {
             norm_data->my_sum += fabs(norm_data->result[i+j*n]);
         }
         // once you have the sum for the column, compare it to the 'global' norm for the matrix
-        // if the sum of the column values is larger than the global norm, update the norm to be this column's sum
+        // if the global norm is less than the sum of this column, update the norm to be this column's sum
         pthread_mutex_lock(norm_data->mutex);
         if(*(norm_data->global_norm) < norm_data->my_sum){
             *(norm_data->global_norm) = norm_data->my_sum;
