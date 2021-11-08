@@ -14,10 +14,9 @@ int n;
 typedef struct {
         double *mat1;
         double *slice;
-        int sliceId;
-	int sliceSize;
+	int slice_size;
         double *result;
-} matrix_slice_product;
+} matrix_multiply_t;
 
 typedef struct {
     double my_sum;
@@ -52,22 +51,13 @@ void *matrix_norm(void *arg) {
     pthread_exit(NULL);
 }
 
-void *serial_matrix_multiply(void *arg) {
-         matrix_slice_product *sliceData;
-         sliceData = arg;
-	 //printf("\n got here slice numba %d\n", sliceData->sliceId);
-         int sliceSize = sliceData->sliceSize;
-	 //printf("mat1 is \n");
-	 //PrintMatrix(sliceData->mat1);
-         //printf("slice is\n");
-         /*for(int i=0;i<n;i++){
-	     for(int j=0;j<sliceSize;j++){
-		printf("%lf ", sliceData->slice[i*n + j]);
-	     }
-	     printf("\n");
-	 }*/
-         cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, sliceSize, n, 1, sliceData->mat1, n, sliceData->slice, n, 1, sliceData->result + (sliceSize*sliceData->sliceId), n);
-         pthread_exit(NULL);
+void *matrix_multiply(void *arg) {
+    matrix_multiply_t *slice_data;
+    slice_data = arg;
+    int slice_size = slice_data->slice_size;
+    // multiply matrix 1 (left matrix) with thread's slice, storing result in corresponding slice of result matrix
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, slice_size, n, 1, slice_data->mat1, n, slice_data->slice, n, 1, slice_data->result, n);
+    pthread_exit(NULL);
 }
 int main()
 {
@@ -82,13 +72,13 @@ int main()
 	 //double mat1[] = {7,1,8,7,9,0,9,0,1,8,0,8,5,3,0,8};
  	 //double mat2[] = {1,2,5,4,1,9,7,3,2,9,3,8,9,2,8,3};
          pthread_t *working_thread, *norm_threads;
-         matrix_slice_product *thrd_dot_prod_data;
+         matrix_multiply_t *thrd_mat_mul_data;
          matrix_norm_t *thrd_norm_data;
          pthread_mutex_t *mutex_norm;
          
          void *status;
          int num_of_thrds;
-         int sliceSize;
+         int slice_size;
          int i;
          printf("Number of processors = ");
          if(scanf("%d", &num_of_thrds) < 1 || num_of_thrds > MAXTHRDS) {
@@ -108,7 +98,7 @@ int main()
 	        printf("Serial entered is %d", serial);
                 return -1;
          }*/
-         sliceSize = n/num_of_thrds;
+         slice_size = n/num_of_thrds;
          mat1 = malloc(n*n*sizeof(double));
          mat2 = malloc(n*n*sizeof(double));
          result = malloc(n*n*sizeof(double));
@@ -130,21 +120,20 @@ int main()
 	     return 0;
 	 }
          working_thread = malloc(num_of_thrds*sizeof(pthread_t));
-         thrd_dot_prod_data = malloc(num_of_thrds*sizeof(matrix_slice_product));
+         thrd_mat_mul_data = malloc(num_of_thrds*sizeof(matrix_multiply_t));
          norm_threads = malloc(num_of_thrds*sizeof(pthread_t));
          thrd_norm_data = malloc(num_of_thrds*sizeof(matrix_norm_t));
          mutex_norm = malloc(sizeof(pthread_mutex_t));
          pthread_mutex_init(mutex_norm, NULL);
          gettimeofday(&tv1, &tz);
          for(i=0; i<num_of_thrds; i++) {
-                 thrd_dot_prod_data[i].mat1 = mat1;
-		 thrd_dot_prod_data[i].result = result;
-		 int stride = (i==num_of_thrds-1)? n-(num_of_thrds-1)*sliceSize: sliceSize;
-                 thrd_dot_prod_data[i].slice = mat2 + i*stride;
-                 thrd_dot_prod_data[i].sliceSize = stride;
-		 thrd_dot_prod_data[i].sliceId = i;
-                 pthread_create(&working_thread[i], NULL, serial_matrix_multiply,
-                 (void*)&thrd_dot_prod_data[i]);
+                 thrd_mat_mul_data[i].mat1 = mat1;
+		 int stride = (i==num_of_thrds-1) ? n-(num_of_thrds-1)*slice_size: slice_size;
+                 thrd_mat_mul_data[i].result = result + i*slice_size;
+                 thrd_mat_mul_data[i].slice = mat2 + i*slice_size;
+                 thrd_mat_mul_data[i].slice_size = stride;
+                 pthread_create(&working_thread[i], NULL, matrix_multiply,
+                 (void*)&thrd_mat_mul_data[i]);
          }
 
          for(i=0; i<num_of_thrds; i++)
@@ -157,7 +146,6 @@ int main()
              thrd_norm_data[i].my_sum = 0;
              thrd_norm_data[i].global_norm = &norm;
              thrd_norm_data[i].mutex = mutex_norm;
-             thrd_norm_data[i].id = i;
              thrd_norm_data[i].num_of_cols = (i==num_of_thrds-1)? n-(num_of_thrds-1)*num_of_cols: num_of_cols;
              pthread_create(&norm_threads[i], NULL, matrix_norm, (void*)&thrd_norm_data[i]);
 	 }
@@ -173,7 +161,7 @@ int main()
          free(mat2);
 	 free(result);
          free(working_thread);
-         free(thrd_dot_prod_data);
+         free(thrd_mat_mul_data);
          free(norm_threads);
          free(thrd_norm_data);
          pthread_mutex_destroy(mutex_norm);
