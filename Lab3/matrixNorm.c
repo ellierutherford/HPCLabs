@@ -12,7 +12,7 @@ void PrintMatrix(double *matrixToPrint);
 void InitializeMatrix(int seed, double *matrix);
 double CalculateMatrixNorm(double *result);
 void MultiplyMatrices(double *mat1, double *mat2, double *result);
-bool TestNorm(double *mat1, double *mat2, double *actualResult, double *expectedResult, double expectedNorm);
+bool TestNorm(double *mat1, double *mat2, double *actualResult, double *expectedResult, double expectedNorm, int num_of_thrds, int n);
 void test();
 bool VerifyArraysEqual(double *actual, double *expected);
 
@@ -132,9 +132,14 @@ int main()
     struct timeval tv1, tv2;
     struct timezone tz;
 
-    /*test();
-    printf("finished testing");
-    return 0;*/
+    char c;
+    printf("Press t to run tests or any other key to continue to main program: ");
+    scanf("%c",&c);
+    if(c=='t'){
+        test();
+        return 0;
+    }
+
     double *mat1, *mat2, *result;
 
     printf("Number of processors = ");
@@ -153,13 +158,7 @@ int main()
     result = malloc(n*n*sizeof(double));
 
     InitializeMatrix(1, mat1);
-    printf("\nprinting %dx%d matrix 1\n", n, n);
-    PrintMatrix(mat1);
     InitializeMatrix(1, mat2);
-    printf("\nprinting %dx%d matrix 2\n", n, n);
-    PrintMatrix(mat2);
-    printf("try initialize results matrix");
-
     InitializeMatrix(0, result);
 
     gettimeofday(&tv1, &tz);
@@ -168,10 +167,9 @@ int main()
 
     double norm = CalculateMatrixNorm(result);
 
-    printf("\nmatrix norm is %f\n", norm);
+    printf("\nMatrix norm is %f\n", norm);
     gettimeofday(&tv2, &tz);
     double elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
-    PrintMatrix(result);
     printf("Elapsed time is %f\n", elapsed);
 
     free(mat1);
@@ -181,27 +179,43 @@ int main()
 
 void test(){
     printf("Running tests\n");
+    printf("\nTest 1\n");
     double mat1[] = {136,158,112,122,100,123,96,32,160,102,175,27,163,93,104,164};
     double mat2[] = {6,1,8,8,6,9,9,4,9,1,2,6,7,2,5,7};
-    double expectedResult[] = {3626, 1914, 3344, 3246, 2426, 1367, 2259, 2092, 3336, 1307, 2683, 2927, 3620, 1432, 3169, 3448};
-    double *actualResult;
-    n = 4;
-    actualResult = malloc(n*n*sizeof(double));
-    InitializeMatrix(0,actualResult);
-    bool testPass = TestNorm(mat1,mat2,actualResult,expectedResult,13008);
-    free(actualResult);
-    printf("\nBlocked multiply %s\n", testPass ? "passed" : "failed");
+    double expected_result[] = {3626, 1914, 3344, 3246, 2426, 1367, 2259, 2092, 3336, 1307, 2683, 2927, 3620, 1432, 3169, 3448};
+    double *actual_result;
+    int n = 4;
+    int num_of_threads = 2;
+    bool test_pass = TestNorm(mat1,mat2,actual_result,expected_result,13008,num_of_threads,n);
+
+    printf("\nTest 2\n");
+    num_of_threads = 3;
+    test_pass = TestNorm(mat1,mat2,actual_result,expected_result,13008,num_of_threads,n);
+
+    printf("\nTest 3\n");
+    double mat3[] = {-2,0,4,4,-1,4,-2,0,3,4,2,1,5,2,5,0,-2,-1,4,-2,0,0,1,-2,5,1,5,3,3,4,4,1,3,4,4,-1};
+    double mat4[] = {-1,2,5,0,5,1,4,0,-3,5,4,0,-1,4,2,5,5,3,3,3,1,1,-3,1,1,0,0,4,5,1,-3,1,5,5,3,5};
+    double expected_result2[] = {-3, 28, 22, 40, 5, 33, 10, 21, 5, 32, 6, 18, -1, 29, 24, 22, 45, 13, -5, 6, 16, -16, 11, -5, -6, 43, 55, 65, 72, 46, 16, 31, 22, 35, 44, 16};
+    num_of_threads = 5;
+    n = 6;
+    test_pass = TestNorm(mat3,mat4,actual_result,expected_result2,210,num_of_threads,n);
+
+    printf("\nTest 4\n");
+    num_of_threads = 1;
+    test_pass = TestNorm(mat3,mat4,actual_result,expected_result2,210,num_of_threads,n);
 }
 
-bool TestNorm(double *mat1, double *mat2, double *actualResult, double *expectedResult, double expectedNorm){
-    num_of_thrds = 2;
-    n = 4;
-    printf("multiplying matrices\n");
-    MultiplyMatrices(mat1,mat2,actualResult);
-    printf("calculating norm\n");
-    double norm = CalculateMatrixNorm(actualResult);
-    printf("norm is %lf\n", norm);
-    return VerifyArraysEqual(actualResult,expectedResult) && norm == expectedNorm;
+bool TestNorm(double *mat1, double *mat2, double *actual_result, double *expected_result, double expected_norm, int num_of_threads, int matrixSize){
+    num_of_thrds = num_of_threads;
+    n = matrixSize;
+    actual_result = malloc(n*n*sizeof(double));
+    InitializeMatrix(0,actual_result);
+    MultiplyMatrices(mat1,mat2,actual_result);
+    double norm = CalculateMatrixNorm(actual_result);
+    bool test_passed = VerifyArraysEqual(actual_result,expected_result) && norm == expected_norm;
+    free(actual_result);
+    printf("Matrix norm for n=%d, num_of_thrds=%d %s\n", n, num_of_threads, test_passed ? "passed" : "failed");
+    return test_passed;
 }
 
 bool VerifyArraysEqual(double *actual, double *expected){
