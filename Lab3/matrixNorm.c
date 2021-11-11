@@ -5,6 +5,7 @@
 #include <cblas.h>
 #include <math.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define MAXTHRDS 124
 
@@ -63,6 +64,8 @@ void *matrix_multiply(void *arg) {
     slice_data = arg;
     int slice_size = slice_data->slice_size;
     // multiply matrix 1 (left matrix) with thread's slice, storing result in corresponding slice of result matrix
+    // the slice variable points to the address in memory where the slice begins, the slice_size specifies the number of columns in the slice
+    // and the major stride is set to n i.e. the number of spaces in memory to skip to get to the next element in the column
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, slice_size, n, 1, slice_data->mat1, n, slice_data->slice, n, 1, slice_data->result, n);
     pthread_exit(NULL);
 }
@@ -126,22 +129,20 @@ double CalculateMatrixNorm(double *result){
     return norm;
 }
 
-int main()
+int main(int argc,char* argv[])
 {
     srand(time(NULL));
     struct timeval tv1, tv2;
     struct timezone tz;
 
-    char c;
+    // COMMENTED OUT USER INPUT - RUNNING EXPERIMENTS EASIER WITH CMD LINE ARGS
+    /*char c;
     printf("Press t to run tests or any other key to continue to main program: ");
     scanf("%c",&c);
     if(c=='t'){
         test();
         return 0;
     }
-
-    double *mat1, *mat2, *result;
-
     printf("Number of processors = ");
     if(scanf("%d", &num_of_thrds) < 1 || num_of_thrds > MAXTHRDS) {
         printf("Check input for number of processors. Bye.\n");
@@ -151,7 +152,21 @@ int main()
     if(scanf("%d", &n)<1) {
         printf("Check input for matrix size. Bye.\n");
         return -1;
+    }*/
+
+    if(argc==2 & *argv[1]=='t'){
+        test();
+        return 0;
     }
+
+    num_of_thrds = atoi(argv[1]);
+    if(num_of_thrds > MAXTHRDS){
+        printf("too many threads! Exiting...");
+        return -1;
+    }
+    n = atoi(argv[2]);
+
+    double *mat1, *mat2, *result;
 
     mat1 = malloc(n*n*sizeof(double));
     mat2 = malloc(n*n*sizeof(double));
@@ -161,13 +176,16 @@ int main()
     InitializeMatrix(1, mat2);
     InitializeMatrix(0, result);
 
+    // start timer
     gettimeofday(&tv1, &tz);
 
+    // step 1: get result matrix
     MultiplyMatrices(mat1,mat2,result);
-
+    // step 2: calculate norm of result matrix
     double norm = CalculateMatrixNorm(result);
+    //printf("\nMatrix norm is %f\n", norm);
 
-    printf("\nMatrix norm is %f\n", norm);
+    // finish timer
     gettimeofday(&tv2, &tz);
     double elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
     printf("Elapsed time is %f\n", elapsed);
