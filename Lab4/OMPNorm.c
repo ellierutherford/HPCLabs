@@ -47,9 +47,8 @@ int main(int argc,char* argv[])
 
     int i;
     num_of_thrds = omp_get_num_procs();
-    omp_set_num_threads(num_of_thrds);
     n = atoi(argv[1]);
-
+    omp_set_num_threads(num_of_thrds);
     if(num_of_thrds > n){
         chunk_size = n;
     }
@@ -78,6 +77,7 @@ int main(int argc,char* argv[])
     gettimeofday(&tv2, &tz);
     double elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
     printf("Elapsed time is %f\n", elapsed);
+
     free(mat1);
     free(mat2);
     free(result);
@@ -86,19 +86,23 @@ int main(int argc,char* argv[])
 double CalculateMatrixNorm(double* result){
     double my_sum=0;
     double global_norm=0;
-
-    #pragma omp parallel for schedule(static,chunk_size) private(my_sum) shared(global_norm)
+    double my_norm=0;
+    #pragma omp parallel for schedule(static,chunk_size) private(my_sum,my_norm) shared(global_norm)
     for(int i=0; i<n; i++){
         // inner loop takes care of getting each value in a given column
         for(int j=0;j<n;j++){
             // add the absolute value of each cell in column to total sum for column
             my_sum += fabs(result[i+j*n]);
         }
-        // once you have the sum for the column, compare it to the 'global' norm for the matrix
-        // if the global norm is less than the sum of this column, update the norm to be this column's sum
-        #pragma omp critical
-        if(global_norm < my_sum){
-            global_norm = my_sum;
+        // once you have the sum for the column, compare it to the current norm of the columns the thread owns
+        // if it's greater than the current norm, update the norm of the thread and compare it to the global_norm
+        // if the global norm is less than the thread's norm, update the global norm accordingly
+        if(my_norm<my_sum){
+            my_norm = my_sum;
+            #pragma omp critical
+	    if(global_norm < my_norm){
+                global_norm = my_norm;
+            }
         }
         // reset the sum in between columns
         my_sum = 0;
