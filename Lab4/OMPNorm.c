@@ -49,12 +49,6 @@ int main(int argc,char* argv[])
     num_of_thrds = omp_get_num_procs();
     n = atoi(argv[1]);
     omp_set_num_threads(num_of_thrds);
-    if(num_of_thrds > n){
-        chunk_size = n;
-    }
-    else if(num_of_thrds <= n){
-        chunk_size = n/num_of_thrds;
-    }
 
     mat1 = malloc(n*n*sizeof(double));
     mat2 = malloc(n*n*sizeof(double));
@@ -87,7 +81,7 @@ double CalculateMatrixNorm(double* result){
     double my_sum=0;
     double global_norm=0;
     double my_norm=0;
-    #pragma omp parallel for schedule(static,chunk_size) private(my_sum,my_norm) shared(global_norm)
+    #pragma omp parallel for schedule(static,1) private(my_sum,my_norm) shared(global_norm)
     for(int i=0; i<n; i++){
         // inner loop takes care of getting each value in a given column
         for(int j=0;j<n;j++){
@@ -111,7 +105,7 @@ double CalculateMatrixNorm(double* result){
 }
 
 void MultiplyMatrices(double* mat1, double* mat2, double* result){
-    #pragma omp parallel for schedule(static,chunk_size)
+    #pragma omp parallel for schedule(static,1)
     for(int i=0; i<num_of_thrds; i++) {
         int slice_size = n/num_of_thrds;
 	int stride = (i==num_of_thrds-1) ? n-(num_of_thrds-1)*slice_size: slice_size;
