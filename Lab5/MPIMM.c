@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
    double *a, *b, *rowA, *colB, start, sum, sumdiag;
    int i, j, k;
    n = atoi(argv[1]);
+   MPI_Comm rowComm, colComm;
    MPI_Init(&argc, &argv);
    MPI_Comm_size(MPI_COMM_WORLD,&p);
    MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
@@ -23,7 +24,7 @@ int main(int argc, char **argv) {
    //rowA = malloc(n*sqrt(squareSize)*sizeof(double));
    //colB = malloc(n*sqrt(squareSize)*sizeof(double));
    rowA = malloc(squareSize*n*sizeof(double));
-   //colB = malloc(squareSize*n*sizeof(double));
+   colB = malloc(squareSize*n*sizeof(double));
    for(i=0; i<squareSize*squareSize; i++) {
      a[i] = 1.;
      b[i] = 2.;
@@ -31,19 +32,27 @@ int main(int argc, char **argv) {
    MPI_Barrier(MPI_COMM_WORLD);
    /*if(myrank==0)
      start = MPI_Wtime();*/
+
+   int color = myrank/n;
+   MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&rowComm);
+   //MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&colComm);
+   
    for(i=0; i<p; i++){
-       MPI_Gather(a, squareSize*squareSize, MPI_DOUBLE, rowA, (n*n)/p, MPI_DOUBLE, i, MPI_COMM_WORLD);
-       //MPI_Gather(b, squareSize*squareSize, MPI_DOUBLE, colB, squareSize*squareSize, MPI_DOUBLE, i, MPI_COMM_WORLD);
+       MPI_Gather(a, squareSize*squareSize, MPI_DOUBLE, rowA, (n*n)/p, MPI_DOUBLE, i, rowComm);
+   }
+   MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&colComm);
+   for(i=0;i<p;i++){
+       MPI_Gather(b, squareSize*squareSize, MPI_DOUBLE, colB, (n*n)/p, MPI_DOUBLE, i, colComm);
    }
 
-   for(int l=0;l<n*squareSize;l++){
+   for(int l=0;l<squareSize*n;l++){
        printf("%lf ",rowA[l]);
        //if(l=n*n-1){
          //printf("\n");
        //}
    }
    free(rowA);
-   //free(colB);
+   free(colB);
    MPI_Barrier(MPI_COMM_WORLD);
    /*if(myrank==0)
        printf("It took %f seconds to multiply 2 %dx%d matrices.\n",
