@@ -9,11 +9,14 @@ int main(int argc, char **argv) {
    int myn, myrank;
    double *a, *b, *c, *rowA, *colB, start, sum, *allC, sumdiag;
    int i, j, k;
+   double matA[] = {1,4,8,6,3,5,8,10,12,2,4,3,7,1,8,9,10,11,3,4,5,2,8,1,7,6,9,8,6,7,2,2,1,3,8,9};
+   double matB[] = {8,6,3,4,5,2,1,3,8,3,1,5,5,1,3,5,4,5,7,6,9,2,4,6,6,4,2,3,4,5,8,9,7,1,2,3};
    n = atoi(argv[1]);
    MPI_Comm rowComm, colComm;
    MPI_Init(&argc, &argv);
    MPI_Comm_size(MPI_COMM_WORLD,&p);
    MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+   
    int sqrtp = (int)sqrt(p);
    int numOfSquares = p;
    int squareSize = n/sqrtp;
@@ -23,13 +26,25 @@ int main(int argc, char **argv) {
    c = malloc(squareSize*squareSize*sizeof(double));
    rowA = malloc(squareSize*n*sizeof(double));
    colB = malloc(squareSize*n*sizeof(double));
-   for(i=0; i<squareSize*squareSize; i++) {
+   /*for(i=0; i<squareSize*squareSize; i++) {
      a[i] = 1.;
      b[i] = 2.;
+   }*/
+   MPI_Scatter(matA, squareSize*squareSize, MPI_DOUBLE, a, squareSize*squareSize, MPI_DOUBLE,myrank,MPI_COMM_WORLD);
+   MPI_Scatter(matB, squareSize*squareSize, MPI_DOUBLE, b, squareSize*squareSize, MPI_DOUBLE,myrank,MPI_COMM_WORLD);
+   printf("A: rank is %d:\n",myrank);
+   for(int i=0;i<squareSize*squareSize;i++){
+       printf("%lf ", a[i]);
    }
+   printf("\n");
+   printf("B: rank is %d:\n",myrank);
+   for(int i=0;i<squareSize*squareSize;i++){
+       printf("%lf ", b[i]);
+   }
+   printf("\n");
    MPI_Barrier(MPI_COMM_WORLD);
-   /*if(myrank==0)
-     start = MPI_Wtime();*/
+   if(myrank==0)
+     start = MPI_Wtime();
 
    int colour = myrank/sqrtp;
    printf("colour for processor %d is %d\n", myrank,colour);
@@ -63,7 +78,7 @@ int main(int argc, char **argv) {
                sum += a[i*squareSize+k]*b[k*squareSize+j];
            c[i*squareSize+j] = sum;
         }
-
+   
    free(rowA);
    free(colB);
    MPI_Barrier(MPI_COMM_WORLD);
@@ -77,6 +92,12 @@ int main(int argc, char **argv) {
      for(i=0, sumdiag=0.; i<n; i++)
        sumdiag += allC[i*n+i];
      printf("The trace of the resulting matrix is %f\n", sumdiag);
+    for(int i=0;i<n;i++){
+        for(int j=0;j<n;j++){
+            printf("%lf ", allC[i*n + j]);
+        }
+        printf("\n");
+    }
    }
    if(myrank==0)
      free(allC);
