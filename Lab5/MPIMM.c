@@ -7,7 +7,7 @@
 int n, p;
 int main(int argc, char **argv) {
    int myn, myrank;
-   double *a, *b, *rowA, *colB, start, sum, sumdiag;
+   double *a, *b, *c, *rowA, *colB, start, sum, *allC, sumdiag;
    int i, j, k;
    n = atoi(argv[1]);
    MPI_Comm rowComm, colComm;
@@ -17,12 +17,10 @@ int main(int argc, char **argv) {
    int sqrtp = (int)sqrt(p);
    int numOfSquares = p;
    int squareSize = n/sqrtp;
-   printf("squareSize is %d, n is %d \n", squareSize,n);
+
    a = malloc(squareSize*squareSize*sizeof(double));
    b = malloc(squareSize*squareSize*sizeof(double));
-   //c = malloc(squareSize*squareSize*sizeof(double));
-   //rowA = malloc(n*sqrt(squareSize)*sizeof(double));
-   //colB = malloc(n*sqrt(squareSize)*sizeof(double));
+   c = malloc(squareSize*squareSize*sizeof(double));
    rowA = malloc(squareSize*n*sizeof(double));
    colB = malloc(squareSize*n*sizeof(double));
    for(i=0; i<squareSize*squareSize; i++) {
@@ -33,34 +31,46 @@ int main(int argc, char **argv) {
    /*if(myrank==0)
      start = MPI_Wtime();*/
 
-   //int row = myrank/4;
    int colour = myrank/sqrtp;
    printf("colour for processor %d is %d\n", myrank,colour);
 
    MPI_Comm_split(MPI_COMM_WORLD, colour, myrank, &rowComm);
-   //MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&colComm);
+   MPI_Comm_split(MPI_COMM_WORLD,myrank%sqrtp,myrank,&colComm);
 
+   // TODO: merge into one loop?
    for(i=0; i<sqrtp; i++){
        MPI_Gather(a, squareSize*squareSize, MPI_DOUBLE, rowA, (n*n)/p, MPI_DOUBLE, i, rowComm);
    }
-   //MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&colComm);
-   /*for(i=0;i<p;i++){
+   for(i=0;i<sqrtp;i++){
        MPI_Gather(b, squareSize*squareSize, MPI_DOUBLE, colB, (n*n)/p, MPI_DOUBLE, i, colComm);
-   }*/
+   }
 
-   for(int l=0;l<squareSize*n;l++){
+   /*for(int l=0;l<squareSize*n;l++){
        printf("%lf ",rowA[l]);
        //if(l=n*n-1){
          //printf("\n");
        //}
    }
+
+   for(int l=0;l<squareSize*n;l++){
+      printf("%lf ",colB[l]);
+   }*/
+
+   for(i=0; i<squareSize; i++)
+       for(j=0; j<squareSize; j++) {
+           sum = 0.;
+           for(k=0; k<squareSize; k++)
+               sum += a[i*squareSize+k]*b[k*squareSize+j];
+           c[i*squareSize+j] = sum;
+        }
+
    free(rowA);
    free(colB);
    MPI_Barrier(MPI_COMM_WORLD);
    /*if(myrank==0)
        printf("It took %f seconds to multiply 2 %dx%d matrices.\n",
-   MPI_Wtime()-start, n, n);
-   /*if(myrank==0)
+   MPI_Wtime()-start, n, n);*/
+   if(myrank==0)
      allC = malloc(n*n*sizeof(double));
    MPI_Gather(c, squareSize*squareSize, MPI_DOUBLE, allC, squareSize*squareSize, MPI_DOUBLE,0, MPI_COMM_WORLD);
    if(myrank==0) {
@@ -69,10 +79,10 @@ int main(int argc, char **argv) {
      printf("The trace of the resulting matrix is %f\n", sumdiag);
    }
    if(myrank==0)
-     free(allC);*/
+     free(allC);
    MPI_Finalize();
    free(a);
    free(b);
-   //free(c);
+   free(c);
 }
 
