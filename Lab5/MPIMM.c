@@ -14,10 +14,10 @@ int main(int argc, char **argv) {
    MPI_Init(&argc, &argv);
    MPI_Comm_size(MPI_COMM_WORLD,&p);
    MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-   double sqrtp = sqrt(p);
-   double numOfSquares = p;
-   double squareSize = n/sqrtp;
-   printf("squareSize is %lf, n is %d \n", squareSize,n);
+   int sqrtp = (int)sqrt(p);
+   int numOfSquares = p;
+   int squareSize = n/sqrtp;
+   printf("squareSize is %d, n is %d \n", squareSize,n);
    a = malloc(squareSize*squareSize*sizeof(double));
    b = malloc(squareSize*squareSize*sizeof(double));
    //c = malloc(squareSize*squareSize*sizeof(double));
@@ -33,17 +33,20 @@ int main(int argc, char **argv) {
    /*if(myrank==0)
      start = MPI_Wtime();*/
 
-   int color = myrank/n;
-   MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&rowComm);
+   //int row = myrank/4;
+   int colour = myrank/sqrtp;
+   printf("colour for processor %d is %d\n", myrank,colour);
+
+   MPI_Comm_split(MPI_COMM_WORLD, colour, myrank, &rowComm);
    //MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&colComm);
-   
-   for(i=0; i<p; i++){
+
+   for(i=0; i<sqrtp; i++){
        MPI_Gather(a, squareSize*squareSize, MPI_DOUBLE, rowA, (n*n)/p, MPI_DOUBLE, i, rowComm);
    }
-   MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&colComm);
-   for(i=0;i<p;i++){
+   //MPI_Comm_split(MPI_COMM_WORLD,color,myrank,&colComm);
+   /*for(i=0;i<p;i++){
        MPI_Gather(b, squareSize*squareSize, MPI_DOUBLE, colB, (n*n)/p, MPI_DOUBLE, i, colComm);
-   }
+   }*/
 
    for(int l=0;l<squareSize*n;l++){
        printf("%lf ",rowA[l]);
