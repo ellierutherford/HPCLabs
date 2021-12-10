@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
    int myn, myrank;
    double *a, *b, *c, *matA, *matB, *rowA, *colB, start, sum, *allC, sumdiag;
    int i, j, k;
-   
+
    n = atoi(argv[1]);
    MPI_Comm rowComm, colComm;
    MPI_Init(&argc, &argv);
@@ -33,10 +33,10 @@ int main(int argc, char **argv) {
        InitializeMatrix(1,matA);
        sleep(1); // sleep so we get different random numbers in each matrix
        InitializeMatrix(1,matB);
-       printf("Printing mat A: \n");
-       PrintMatrix(matA);
-       printf("Printing mat B: \n");
-       PrintMatrix(matB);
+       //printf("Printing mat A: \n");
+       //PrintMatrix(matA);
+       //printf("Printing mat B: \n");
+       //PrintMatrix(matB);
    }
 
    a = malloc(squareSize*squareSize*sizeof(double));
@@ -145,18 +145,7 @@ int main(int argc, char **argv) {
        }
    }
    MPI_Wait(&sendRequestC, MPI_STATUS_IGNORE);
-   //MPI_Gather(c, squareSize*squareSize, MPI_DOUBLE, allC, squareSize*squareSize, MPI_DOUBLE,0, MPI_COMM_WORLD);
-   if(myrank==0) {
-     for(i=0, sumdiag=0.; i<n; i++)
-       sumdiag += allC[i*n+i];
-     printf("The trace of the resulting matrix is %f\n", sumdiag);
-    for(int i=0;i<n;i++){
-        for(int j=0;j<n;j++){
-            printf("%lf ", allC[i*n + j]);
-        }
-        printf("\n");
-    }
-   }
+
    if(myrank==0){
      free(allC);
      free(matA);
