@@ -28,25 +28,35 @@ int main(int argc, char **argv) {
    c = malloc(squareSize*squareSize*sizeof(double));
    rowA = malloc(squareSize*n*sizeof(double));
    colB = malloc(squareSize*n*sizeof(double));
-   int currentProc;
-   for(int i=0;i<n*n;i+=n*squareSize){
-       for(int k=0;k<sqrtp*squareSize;k+=squareSize){
-           currentProc++;
-           for(int j=0;j<squareSize;j++){
-               MPI_Send(matA[i+(n*j)+k],squareSize,MPI_DOUBLE,currentProc,1,MPI_COMM_WORLD);
+   
+   MPI_Request recvRequest;
+   MPI_Request sendRequest;
+   if(myrank==0){
+   int currentProc=0;
+   for(int i=0;i<sqrtp;i++){
+       for(int j=0;j<sqrtp;j++){
+           printf("current proc is %d\n",currentProc); 
+           for(int k=0;k<squareSize;k++){
+               MPI_Issend(&matA[(i*squareSize*n)+(j*squareSize)+(k*n)],squareSize,MPI_DOUBLE,currentProc,1,MPI_COMM_WORLD,&sendRequest);
            }
+           currentProc++;
        }
    }
-   for(int i=0;i<p;i++){
-       MPI_Recv(a,squareSize,MPI_DOUBLE,0,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE)
    }
+
+   for(int i=0;i<p;i++){
+       for(int j=0;j<squareSize;j++){
+           MPI_Irecv(a,squareSize,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&recvRequest);
+       }
+   }
+   //MPI_Wait(&recvRequest, MPI_STATUS_IGNORE);
    //MPI_Type_create_resized(col, 0, 1*sizeof(double), &coltype);
    //MPI_Type_commit(&coltype);
    /*for(i=0; i<squareSize*squareSize; i++) {
      a[i] = 1.;
      b[i] = 2.;
    }*/
-   MPI_Scatter(matA, squareSize*squareSize, MPI_DOUBLE, a, squareSize*squareSize, MPI_DOUBLE,myrank,MPI_COMM_WORLD);
+   //MPI_Scatter(matA, squareSize*squareSize, MPI_DOUBLE, a, squareSize*squareSize, MPI_DOUBLE,myrank,MPI_COMM_WORLD);
    //MPI_Scatter(matrix, part_size, coltype, mypart, part_size, coltype, 0, MPI_COMM_WORLD);
    MPI_Scatter(matB, squareSize*squareSize, MPI_DOUBLE, b, squareSize*squareSize, MPI_DOUBLE, myrank, MPI_COMM_WORLD);
    /*printf("A: rank is %d:\n",myrank);
@@ -54,9 +64,9 @@ int main(int argc, char **argv) {
        printf("%lf ", a[i]);
    }*/
    printf("\n");
-   printf("B: rank is %d:\n",myrank);
+   printf("A: rank is %d:\n",myrank);
    for(int i=0;i<squareSize*squareSize;i++){
-       printf("%lf ", b[i]);
+       printf("%lf ", a[i]);
    }
    printf("\n");
    MPI_Barrier(MPI_COMM_WORLD);
