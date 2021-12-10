@@ -31,24 +31,33 @@ int main(int argc, char **argv) {
    
    MPI_Request recvRequest;
    MPI_Request sendRequest;
-   if(myrank==0){
-   int currentProc=0;
-   for(int i=0;i<sqrtp;i++){
-       for(int j=0;j<sqrtp;j++){
-           printf("current proc is %d\n",currentProc); 
-           for(int k=0;k<squareSize;k++){
-               MPI_Issend(&matA[(i*squareSize*n)+(j*squareSize)+(k*n)],squareSize,MPI_DOUBLE,currentProc,1,MPI_COMM_WORLD,&sendRequest);
-           }
-           currentProc++;
-       }
+   int count=0;
+   for(int i=0;i<squareSize;i++){
+       MPI_Irecv(&a[i*squareSize],squareSize,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&recvRequest);
+       count++;
    }
+   printf("recvcount is %d\n",count);
+   if(myrank==0){
+       int sendCount=0;
+       int currentProc=0;
+       for(int i=0;i<sqrtp;i++){
+           for(int j=0;j<sqrtp;j++){
+               printf("current proc is %d\n",currentProc);
+               for(int k=0;k<squareSize;k++){
+                   MPI_Send(&matA[(i*squareSize*n)+(j*squareSize)+(k*n)],squareSize,MPI_DOUBLE,currentProc,1,MPI_COMM_WORLD/*,&sendRequest*/);
+	           sendCount++;
+               }
+               currentProc++;
+           }
+       }
+   printf("sendcount is %d\n",sendCount);
    }
 
-   for(int i=0;i<p;i++){
-       for(int j=0;j<squareSize;j++){
-           MPI_Irecv(a,squareSize,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&recvRequest);
-       }
-   }
+   MPI_Status recvStatus,sendStatus;
+   int recvFlag, sendFlag;
+   MPI_Test(&recvRequest, &recvFlag, &recvStatus);
+   printf("flag is %d for rank %d\n",recvFlag,myrank);
+
    //MPI_Wait(&recvRequest, MPI_STATUS_IGNORE);
    //MPI_Type_create_resized(col, 0, 1*sizeof(double), &coltype);
    //MPI_Type_commit(&coltype);
@@ -63,11 +72,33 @@ int main(int argc, char **argv) {
    for(int i=0;i<squareSize*squareSize;i++){
        printf("%lf ", a[i]);
    }*/
-   printf("\n");
-   printf("A: rank is %d:\n",myrank);
+   //printf("\n");
+   printf("\nA: rank is %d:\n",myrank);
    for(int i=0;i<squareSize*squareSize;i++){
        printf("%lf ", a[i]);
    }
+   MPI_Test(&recvRequest, &recvFlag, &recvStatus);
+   printf("flag is %d for rank %d\n",recvFlag,myrank);
+   int delay=0;
+   while(delay<10000000){
+       delay++;
+   }
+   printf("\nA: rank is %d:\n",myrank);
+   for(int i=0;i<squareSize*squareSize;i++){
+       printf("%lf ", a[i]);
+   }
+   MPI_Test(&recvRequest, &recvFlag, &recvStatus);
+   printf("flag is %d for rank %d\n",recvFlag,myrank);
+   delay=0;
+   while(delay<10000000){
+       delay++;
+   }
+   printf("\nA: rank is %d:\n",myrank);
+   for(int i=0;i<squareSize*squareSize;i++){
+       printf("%lf ", a[i]);
+   }
+   MPI_Test(&recvRequest, &recvFlag, &recvStatus);
+   printf("flag is %d for rank %d\n",recvFlag,myrank);
    printf("\n");
    MPI_Barrier(MPI_COMM_WORLD);
    if(myrank==0)
@@ -87,7 +118,7 @@ int main(int argc, char **argv) {
        MPI_Gather(b, squareSize*squareSize, MPI_DOUBLE, colB, (n*n)/p, MPI_DOUBLE, i, colComm);
    }
 
-   for(int l=0;l<squareSize*n;l++){
+   /*for(int l=0;l<squareSize*n;l++){
        printf("rank is %d, element %d of rowA is %lf \n",myrank,l,rowA[l]);
        //if(l=n*n-1){
          //printf("\n");
@@ -95,7 +126,7 @@ int main(int argc, char **argv) {
    }
    for(int l=0;l<squareSize*n;l++){
        printf("rank is %d, element %d of colB is %lf \n",myrank,l,colB[l]);
-   }
+   }*/
 
    /*for(int l=0;l<squareSize*n;l++){
       printf("%lf ",colB[l]);
